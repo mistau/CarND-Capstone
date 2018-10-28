@@ -4,6 +4,7 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from std_msgs.msg import Int32
 from scipy.spatial import KDTree
 
 import math
@@ -24,7 +25,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
-MAX_DECEL = 10      # Max. acceptable deceleration is 10m/s²
+MAX_DECEL = 10      # Max. acceptable deceleration is 10m/s/s
 
 
 class WaypointUpdater(object):
@@ -46,17 +47,15 @@ class WaypointUpdater(object):
 
         # init member variables
         self.pose = None
-        self.base_waypoints = None
+        self.base_lane = None
         self.waypoints_2d = None
         self.waypoints_tree = None
         self.stopline_wp_idx = -1
 
         rate = rospy.Rate(50)
         while not rospy.is_shutdown():
-            if self.pose and self.base_waypoints:
-                # get closest waypoint
-                closest_waypoint_idx = self.get_closest_waypoint_idx()
-                self.publish_waypoints(closest_waypoint_idx)
+            if self.pose and self.base_lane:
+                self.publish_waypoints()
             rate.sleep();
 
 
@@ -98,11 +97,13 @@ class WaypointUpdater(object):
         takes into account a detected traffic light
         """
         lane = Lane()
-        lane.header = self.base_waypoints.header 
+        
+        # \todo MS:check if the statement below is required
+        #lane.header = self.base_lane.header
 
-        clostest_idx = self.get_closest_waypoint_idx()
+        closest_idx = self.get_closest_waypoint_idx()
         farthest_idx = closest_idx + LOOKAHEAD_WPS
-        base_waypoints = self.base_lane.waypoints[clostest_idx:farthest_idx]
+        base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
 
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
             # easy case - continue driving
@@ -122,7 +123,7 @@ class WaypointUpdater(object):
         for i,wp in enumerate(waypoints):
             p = Waypoint()
             p.pose = wp.pose
-            stop_idx = max(self.stopline_wp_idx - clostest_idx -1, 0) # stop two waypoints before!
+            stop_idx = max(self.stopline_wp_idx - closest_idx -1, 0) # stop two waypoints before!
             dist = self.distance(waypoints, i, stop_idx)
             v = math.sqrt(2 * MAX_DECEL * dist)
             if v<1.0:
@@ -144,7 +145,7 @@ class WaypointUpdater(object):
         Callback: receives waypoints of track
         Attention: this is only published once, keep the data safe!
         """
-        self.base_waypoints = waypoints
+        self.base_lane = waypoints
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)
