@@ -39,8 +39,8 @@ class WaypointUpdater(object):
         # inputs of the ROS module
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-        rospy.Subscriber('/traffic_waypoints', Int32, self.traffic_cb)
-        #rospy.Subscriber('/obstacle_waypoints', Int32, self.obstacle_cb)
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+        #rospy.Subscriber('/obstacle_waypoint', Int32, self.obstacle_cb)
         
         # outputs of the ROS module
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
@@ -110,7 +110,7 @@ class WaypointUpdater(object):
             lane.waypoints = base_waypoints
         else:
             # red traffic light ahead - we have to break
-            lane.waypoints = self.decelerate_wayponts(base_waypoints, closest_idx)
+            lane.waypoints = self.decelerate_waypoints(base_waypoints, closest_idx)
 
         return lane
 
@@ -119,11 +119,12 @@ class WaypointUpdater(object):
         """
         Calculate list of waypoints for deceleration in front of a red traffic light
         """
+        #rospy.logwarn("Calculating deceleration path for idx={0}".format(closest_idx))
         temp = []
         for i,wp in enumerate(waypoints):
             p = Waypoint()
             p.pose = wp.pose
-            stop_idx = max(self.stopline_wp_idx - closest_idx -1, 0) # stop two waypoints before!
+            stop_idx = max(self.stopline_wp_idx - closest_idx -2, 0) # stop two waypoints before!
             dist = self.distance(waypoints, i, stop_idx)
             v = math.sqrt(2 * MAX_DECEL * dist)
             if v<1.0:
@@ -145,6 +146,7 @@ class WaypointUpdater(object):
         Callback: receives waypoints of track
         Attention: this is only published once, keep the data safe!
         """
+        rospy.loginfo("Received the waypoints")
         self.base_lane = waypoints
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
@@ -157,6 +159,8 @@ class WaypointUpdater(object):
                   -1 means no traffic light
         """
         self.stopline_wp_idx = msg.data
+        if self.stopline_wp_idx != -1:
+            rospy.loginfo("Red Traffic light detected: {0}".format(self.stopline_wp_idx))
 
 
     def obstacle_cb(self, msg):
