@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import rospy, numpy, tf, cv2, yaml
+import rospy, numpy, tf, cv2, yaml, datetime
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped, Pose
 from styx_msgs.msg import TrafficLightArray, TrafficLight, Lane
@@ -9,6 +9,8 @@ from scipy.spatial import KDTree
 from light_classification.tl_classifier import TLClassifier
 
 STATE_COUNT_THRESHOLD = 3
+IMAGE_COUNT_THRESHOLD = 3
+TL_DETECTOR_DEBUG = False
 
 class TLDetector(object):
     def __init__(self):
@@ -58,8 +60,13 @@ class TLDetector(object):
         self.light_state = TrafficLight.UNKNOWN
         self.light_wp = -1
         self.state_count = 0
+        self.image_count = 0
 
-        rospy.logwarn("Basic TLDetector running..")
+        if TL_DETECTOR_DEBUG is True:
+            rospy.logwarn("Using Basic TLDetector")
+        else:
+            rospy.loginfo("Using TLClassifier (detection only)")
+
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -108,9 +115,17 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
         """
 
-        self.has_image = True
-        self.camera_image = msg
-        new_light_wp, new_state = self.process_traffic_lights()
+        if self.image_count < IMAGE_COUNT_THRESHOLD:
+            self.image_count += 1
+            self.has_image = False
+            new_light_wp = self.light_wp
+            new_state = self.light_state
+
+        else:
+            self.image_count = 0
+            self.has_image = True
+            self.camera_image = msg
+            new_light_wp, new_state = self.process_traffic_lights()
 
         '''
         Publish upcoming red lights at camera frequency. Each predicted state
@@ -127,7 +142,9 @@ class TLDetector(object):
             if self.state_count >= STATE_COUNT_THRESHOLD:
                 self.light_wp = self.light_wp if self.light_state == TrafficLight.RED else -1
             self.upcoming_red_light_pub.publish(Int32(self.light_wp))
-        self.state_count += 1
+
+        if self.has_image is True:
+            self.state_count += 1
 
     # TODO merge with 'waypoint_updater' node?
     def get_closest_waypoint(self, x, y):
@@ -170,24 +187,18 @@ class TLDetector(object):
 
         Returns:
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
+            or None if no camera image exists
         """
 
-        '''
-        This function is currently not implemented using a trained classifier to
-        predict the state of the traffic light. Instead, the traffic light state
-        is returned by the traffic light in the simulator, which can be used
-        only to enable the testing of other ROS nodes under development.
-        '''
-        return light.state #TODO remove this line with a classifier prediction
+        if TL_DETECTOR_DEBUG is True:
+            return light.state
 
-        # if(not self.has_image):
-        #     self.prev_light_loc = None
-        #     return False
-        #
-        # cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-        #
-        # #Get classification
-        # return self.light_classifier.get_classification(cv_image)
+        else:
+            if self.has_image is False:
+                return None
+
+            cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+            return self.light_classifier.get_classification(cv_image)
 
     def process_traffic_lights(self):
         """
@@ -223,9 +234,10 @@ class TLDetector(object):
                     closest_light = light
                     line_wp_idx = temp_wp_index
 
-        if closest_light:
+        if closest_light is not None:
             state = self.get_light_state(closest_light)
-            return line_wp_idx, state
+            if state is not None:
+                return line_wp_idx, state
 
         return -1, TrafficLight.UNKNOWN
 
