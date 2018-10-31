@@ -51,6 +51,8 @@ class WaypointUpdater(object):
         self.waypoints_2d = None
         self.waypoints_tree = None
         self.stopline_wp_idx = -1
+        self.cache_closest_wp_idx = -1
+        self.cache_decel_waypoints = None
 
         rate = rospy.Rate(50)
         while not rospy.is_shutdown():
@@ -118,19 +120,37 @@ class WaypointUpdater(object):
     def decelerate_waypoints(self, waypoints, closest_idx):
         """
         Calculate list of waypoints for deceleration in front of a red traffic light
+        waypoints:   list of waypoints ahead of us (i.e. a part of the waypoint list!
+        closest_idx: index of the car's position in the global waypoint list
         """
-        #rospy.logwarn("Calculating deceleration path for idx={0}".format(closest_idx))
+
+        # check if we just calculated this!
+        if closest_idx == self.cache_closest_wp_idx:
+            return self.cache_decel_waypoints
+
+        rospy.logwarn("Calculating deceleration path for idx={0}".format(closest_idx))
         temp = []
+        was_zero = False
         for i,wp in enumerate(waypoints):
             p = Waypoint()
             p.pose = wp.pose
-            stop_idx = max(self.stopline_wp_idx - closest_idx -2, 0) # stop two waypoints before!
-            dist = self.distance(waypoints, i, stop_idx)
-            v = math.sqrt(2 * MAX_DECEL * dist)
-            if v<1.0:
-                v = 0.0
+            if was_zero:
+                v = 0
+            else:
+                stop_idx = max(self.stopline_wp_idx - closest_idx -4, 0) # stop two waypoints before!
+                dist = self.distance(waypoints, i, stop_idx)
+                v = math.sqrt(2 * MAX_DECEL * (dist/20)**3)
+                if v<1.0:
+                    v = 0.0
+                    was_zero = True
+
             p.twist.twist.linear.x = min(v, wp.twist.twist.linear.x)
             temp.append(p)
+        
+        # cache our result to remove latency    
+        self.cache_closest_wp_idx = closest_idx
+        self.cache_decel_waypoints  = temp
+        
         return temp
 
 
@@ -179,6 +199,7 @@ class WaypointUpdater(object):
     def distance(self, waypoints, wp1, wp2):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+        # was wp2+1
         for i in range(wp1, wp2+1):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
