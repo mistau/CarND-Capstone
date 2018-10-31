@@ -34,6 +34,7 @@ class WaypointUpdater(object):
     """
 
     def __init__(self):
+        self.have_waypoints = False
         rospy.init_node('waypoint_updater')
 
         # inputs of the ROS module
@@ -41,7 +42,7 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
         #rospy.Subscriber('/obstacle_waypoint', Int32, self.obstacle_cb)
-        
+
         # outputs of the ROS module
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
@@ -56,10 +57,9 @@ class WaypointUpdater(object):
 
         rate = rospy.Rate(50)
         while not rospy.is_shutdown():
-            if self.pose and self.base_lane:
+            rate.sleep()
+            if self.pose and self.base_lane and self.have_waypoints:
                 self.publish_waypoints()
-            rate.sleep();
-
 
     def get_closest_waypoint_idx(self):
         """
@@ -68,18 +68,18 @@ class WaypointUpdater(object):
         x = self.pose.pose.position.x
         y = self.pose.pose.position.y
         closest_wp_idx = self.waypoint_tree.query([x,y], 1)[1]
-        
+
         # check if closest point is ahead or behind vehicle
         closest_coord = self.waypoints_2d[closest_wp_idx]
         prev_coord = self.waypoints_2d[closest_wp_idx-1]
-        
+
         # hyperplane equation through closest_coords
         cl_vect = np.array(closest_coord)
         prev_vect = np.array(prev_coord)
         pos_vect = np.array([x, y])
-        
+
         val = np.dot(cl_vect-prev_vect, pos_vect-cl_vect)
-        
+
         if val>0:
             closest_wp_idx = (closest_wp_idx+1) % len(self.waypoints_2d)
         return closest_wp_idx
@@ -99,7 +99,7 @@ class WaypointUpdater(object):
         takes into account a detected traffic light
         """
         lane = Lane()
-        
+
         # \todo MS:check if the statement below is required
         #lane.header = self.base_lane.header
 
@@ -146,11 +146,11 @@ class WaypointUpdater(object):
 
             p.twist.twist.linear.x = min(v, wp.twist.twist.linear.x)
             temp.append(p)
-        
-        # cache our result to remove latency    
+
+        # cache our result to remove latency
         self.cache_closest_wp_idx = closest_idx
         self.cache_decel_waypoints  = temp
-        
+
         return temp
 
 
@@ -171,6 +171,7 @@ class WaypointUpdater(object):
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)
+        self.have_waypoints = True
 
 
     def traffic_cb(self, msg):
