@@ -14,6 +14,7 @@ TL_DETECTOR_DEBUG = False
 
 class TLDetector(object):
     def __init__(self):
+        self.initialised = False
         rospy.init_node('tl_detector', log_level=rospy.DEBUG)
 
         self.light_enum = {
@@ -44,7 +45,6 @@ class TLDetector(object):
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray,
                                 self.traffic_cb)
 
-        #TODO investigate '/image_raw' which will have more info for classifier
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
 
         config_string = rospy.get_param("/traffic_light_config")
@@ -74,8 +74,9 @@ class TLDetector(object):
         if TL_DETECTOR_DEBUG is True:
             rospy.logwarn("Using Basic TLDetector")
         else:
-            rospy.loginfo("Using TLClassifier (detection only)")
+            rospy.loginfo("Using TLClassifier")
 
+        self.initialised = True
         rospy.spin()
 
 
@@ -125,37 +126,37 @@ class TLDetector(object):
         Args:
             msg (Image): image from car-mounted camera
         """
+        if self.initialised is True:
+            if self.image_count < IMAGE_COUNT_THRESHOLD:
+                self.image_count += 1
+                self.has_image = False
+                new_light_wp = self.light_wp
+                new_state = self.light_state
 
-        if self.image_count < IMAGE_COUNT_THRESHOLD:
-            self.image_count += 1
-            self.has_image = False
-            new_light_wp = self.light_wp
-            new_state = self.light_state
+            else:
+                self.image_count = 0
+                self.has_image = True
+                self.camera_image = msg
+                new_light_wp, new_state = self.process_traffic_lights()
 
-        else:
-            self.image_count = 0
-            self.has_image = True
-            self.camera_image = msg
-            new_light_wp, new_state = self.process_traffic_lights()
+            '''
+            Publish upcoming red lights at camera frequency. Each predicted state
+            has to occur `STATE_COUNT_THRESHOLD` number of times until we start
+            using it. Otherwise the previous stable state is used.
+            '''
+            self.light_wp = new_light_wp
 
-        '''
-        Publish upcoming red lights at camera frequency. Each predicted state
-        has to occur `STATE_COUNT_THRESHOLD` number of times until we start
-        using it. Otherwise the previous stable state is used.
-        '''
-        self.light_wp = new_light_wp
+            if self.light_state != new_state:
+                self.log_tl_state_change(self.light_wp, self.light_state, new_state)
+                self.light_state = new_state
+                self.state_count = 0
+            else:
+                if self.state_count >= STATE_COUNT_THRESHOLD:
+                    self.light_wp = self.light_wp if self.light_state == TrafficLight.RED else -1
+                self.upcoming_red_light_pub.publish(Int32(self.light_wp))
 
-        if self.light_state != new_state:
-            self.log_tl_state_change(self.light_wp, self.light_state, new_state)
-            self.light_state = new_state
-            self.state_count = 0
-        else:
-            if self.state_count >= STATE_COUNT_THRESHOLD:
-                self.light_wp = self.light_wp if self.light_state == TrafficLight.RED else -1
-            self.upcoming_red_light_pub.publish(Int32(self.light_wp))
-
-        if self.has_image is True:
-            self.state_count += 1
+            if self.has_image is True:
+                self.state_count += 1
 
     # TODO merge with 'waypoint_updater' node?
     def get_closest_waypoint(self, x, y):
