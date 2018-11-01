@@ -53,7 +53,7 @@ class TLClassifier(object):
                 feed_dict={self.image_tensor: img_expand})
             end = datetime.datetime.now()
             c = end - start
-            print(c.total_seconds())
+            rospy.logwarn('Inference time: {}'.format(c.total_seconds()))
 
         boxes = np.squeeze(boxes)
         scores = np.squeeze(scores)
