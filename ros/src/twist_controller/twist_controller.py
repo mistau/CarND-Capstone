@@ -18,7 +18,7 @@ class Controller(object):
         # Create controller for throttle/brake
 #        self.pid = PID( kp=5, ki=0.5, kd=0.5, mn=decel_limit, mx=accel_limit )
 #        self.pid = PID( kp=0.3, ki=0.1, kd=2.5, mn=decel_limit, mx=accel_limit )
-        self.pid = PID( kp=1.0, ki=0.05, kd=0.001, mn=decel_limit, mx=accel_limit )
+        self.pid = PID( kp=1.0, ki=0.1, kd=0.001, mn=decel_limit, mx=accel_limit )
 
         # Low pass filters for these 2 controllers
         # Cutoff frequence = 1/(2pi * tau)
