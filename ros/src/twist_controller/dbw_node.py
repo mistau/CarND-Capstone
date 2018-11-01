@@ -76,11 +76,11 @@ class DBWNode(object):
     # Callbacks to handle new messages on my subscribed topics
     def dbw_enabled_cb(self, msg):
         self.dbw_enabled = msg.data
-
-#        if self.dbw_enabled:
-#            rospy.logwarn("DBW enabled set to true")
-#        else:
-#            rospy.logwarn("DBW enabled set to false")
+        if self.dbw_enabled:
+            self.reset_flag = True
+            rospy.logwarn("DBW enabled set to true")
+        else:
+            rospy.logwarn("DBW enabled set to false")
 
     def current_velocity_cb(self, current_velocity):
         self.current_velocity = current_velocity
