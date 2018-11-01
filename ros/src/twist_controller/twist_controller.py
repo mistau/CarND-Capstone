@@ -17,7 +17,8 @@ class Controller(object):
 
         # Create controller for throttle/brake
 #        self.pid = PID( kp=5, ki=0.5, kd=0.5, mn=decel_limit, mx=accel_limit )
-        self.pid = PID( kp=0.3, ki=0.1, kd=2.5, mn=decel_limit, mx=accel_limit )
+#        self.pid = PID( kp=0.3, ki=0.1, kd=2.5, mn=decel_limit, mx=accel_limit )
+        self.pid = PID( kp=1.0, ki=0.05, kd=0.001, mn=decel_limit, mx=accel_limit )
 
         # Low pass filters for these 2 controllers
         # Cutoff frequence = 1/(2pi * tau)
@@ -64,16 +65,21 @@ class Controller(object):
 #        rospy.logwarn("Steering: {0}".format(steering))
 
         if desired_linear_velocity == 0. and current_linear_velocity < 0.1:
-        	throttle = 0.0
-        	brake = 700
+            throttle = 0.0
+            brake = 700
 
         elif throttle < 0.1 and velocity_error < 0.0:
-        	throttle = 0.0
-        	decelleration = max(abs(velocity_error), self.decel_limit)
-        	brake = abs(decelleration) * self.vehicle_mass * self.wheel_radius
+            throttle = 0.0
+            #decelleration = max(abs(velocity_error), self.decel_limit)
+            if velocity_error < self.decel_limit:
+                velocity_error = self.decel_limit
+            decelleration = abs(velocity_error)
+            brake = abs(decelleration) * self.vehicle_mass * self.wheel_radius
+
+        if brake > 0.0:
+            throttle = 0.0
 
 #        rospy.logwarn("New Throttle: {0}".format(throttle))
 #        rospy.logwarn("New Brake: {0}".format(brake))
 #        rospy.logwarn("New Steering: {0}".format(steering))
-
         return throttle, brake, steering
