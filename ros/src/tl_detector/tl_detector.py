@@ -54,7 +54,7 @@ class TLDetector(object):
                                                       Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
+        self.light_classifier = TLClassifier(True)  # parameter is_sim to decide which frozen model to load
         self.listener = tf.TransformListener()
 
         self.light_state = TrafficLight.UNKNOWN
@@ -68,6 +68,7 @@ class TLDetector(object):
             rospy.loginfo("Using TLClassifier (detection only)")
 
         rospy.spin()
+
 
     def pose_cb(self, msg):
         """
@@ -99,11 +100,12 @@ class TLDetector(object):
             The state of the traffic light before it changed
             The state of the traffic light after it changed
         """
-        rospy.loginfo(
-            "TL{} changed from {} to {}".format(
-                wp, self.light_enum[old_state], self.light_enum[new_state]
+        if TL_DETECTOR_DEBUG is True:
+            rospy.loginfo(
+                "TL{} changed from {} to {}".format(
+                    wp, self.light_enum[old_state], self.light_enum[new_state]
+                )
             )
-        )
 
     def image_cb(self, msg):
         """
