@@ -54,8 +54,10 @@ class TLDetector(object):
                                                       Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.sim_classifier_stat = rospy.get_param('~light_classifier_sim', True)  #FIXME: the next line fails!
-        if self.sim_classifier_stat:
+
+        # load appropriate frozen model
+        self.is_site = self.config["is_site"]
+        if not self.is_site:
             self.light_classifier = TLClassifier(True)
             rospy.logwarn("Using neuronal network trained with simulator data")
         else:
