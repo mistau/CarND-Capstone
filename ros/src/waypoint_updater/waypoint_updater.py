@@ -128,7 +128,7 @@ class WaypointUpdater(object):
         if closest_idx == self.cache_closest_wp_idx:
             return self.cache_decel_waypoints
 
-        rospy.logwarn("Calculating deceleration path for idx={0}".format(closest_idx))
+        rospy.loginfo("Calculating deceleration path for idx={0}".format(closest_idx))
         temp = []
         was_zero = False
         for i,wp in enumerate(waypoints):

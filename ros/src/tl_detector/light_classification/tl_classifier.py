@@ -31,7 +31,7 @@ class TLClassifier(object):
                 'num_detections:0')
 
         self.sess = tf.Session(graph=self.graph)
-        rospy.logwarn('TLClassifier: Frozen graph loaded')
+        rospy.loginfo('TLClassifier: Frozen graph loaded')
 
 
     def get_classification(self, image):
@@ -53,7 +53,7 @@ class TLClassifier(object):
                 feed_dict={self.image_tensor: img_expand})
             end = datetime.datetime.now()
             c = end - start
-            rospy.logwarn('Inference time: {}'.format(c.total_seconds()))
+            rospy.logdebug('Inference time: {}'.format(c.total_seconds()))
 
         boxes = np.squeeze(boxes)
         scores = np.squeeze(scores)
@@ -64,13 +64,13 @@ class TLClassifier(object):
 
         if scores[0] > self.threshold:
             if classes[0] == 1:
-                rospy.logwarn('GREEN traffic light detected')
+                rospy.loginfo('GREEN traffic light detected')
                 return TrafficLight.GREEN
             elif classes[0] == 2:
-                rospy.logwarn('RED traffic light detected')
+                rospy.loginfo('RED traffic light detected')
                 return TrafficLight.RED
             elif classes[0] == 3:
-                rospy.logwarn('Yellow traffic light detected')
+                rospy.loginfo('Yellow traffic light detected')
                 return TrafficLight.YELLOW
 
 #        rospy.logwarn('no traffic light detected')

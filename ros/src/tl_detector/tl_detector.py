@@ -14,7 +14,7 @@ TL_DETECTOR_DEBUG = False
 
 class TLDetector(object):
     def __init__(self):
-        rospy.init_node('tl_detector')
+        rospy.init_node('tl_detector', log_level=rospy.DEBUG)
 
         self.light_enum = {
             4:'UNKNOWN',
@@ -59,10 +59,10 @@ class TLDetector(object):
         self.is_site = self.config["is_site"]
         if not self.is_site:
             self.light_classifier = TLClassifier(True)
-            rospy.logwarn("Using neuronal network trained with simulator data")
+            rospy.loginfo("Using neuronal network trained with simulator data")
         else:
             self.light_classifier = TLClassifier(False)
-            rospy.logwarn("Using neuronal network trained with camera images")
+            rospy.loginfo("Using neuronal network trained with camera images")
 
         self.listener = tf.TransformListener()
 
@@ -110,7 +110,7 @@ class TLDetector(object):
             The state of the traffic light after it changed
         """
         if TL_DETECTOR_DEBUG is True:
-            rospy.loginfo(
+            rospy.logdebug(
                 "TL{} changed from {} to {}".format(
                     wp, self.light_enum[old_state], self.light_enum[new_state]
                 )
