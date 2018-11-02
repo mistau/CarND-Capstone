@@ -24,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 50  # Number of waypoints we will publish. You can change this number
 MAX_DECEL = 10      # Max. acceptable deceleration is 10m/s/s
 
 
@@ -45,6 +45,8 @@ class WaypointUpdater(object):
         self.stopline_wp_idx = -1
         self.cache_closest_wp_idx = -1
         self.cache_decel_waypoints = None
+        self.last_closest_idx = -1
+        self.last_base_waypoints = None
 
         # inputs of the ROS module
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -105,8 +107,21 @@ class WaypointUpdater(object):
 
         closest_idx = self.get_closest_waypoint_idx()
         farthest_idx = closest_idx + LOOKAHEAD_WPS
-        base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
-
+        
+        if closest_idx == self.last_closest_idx:
+            base_waypoints = self.last_base_waypoints
+        elif self.last_base_waypoints == None:
+            base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
+        else:
+            base_waypoints = self.last_base_waypoints
+            for i in range(self.last_closest_idx, closest_idx):
+                base_waypoints.pop(0)
+                base_waypoints.append( self.base_lane.waypoints[i + LOOKAHEAD_WPS] )
+        
+        # maintain cache
+        self.last_closest_idx = closest_idx
+        self.last_base_waypoints = base_waypoints
+        
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
             # easy case - continue driving
             lane.waypoints = base_waypoints
