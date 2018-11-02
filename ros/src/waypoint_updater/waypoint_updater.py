@@ -137,7 +137,7 @@ class WaypointUpdater(object):
             if was_zero:
                 v = 0
             else:
-                stop_idx = max(self.stopline_wp_idx - closest_idx -4, 0) # stop two waypoints before!
+                stop_idx = max(self.stopline_wp_idx - closest_idx -3, 0) # stop three waypoints before!
                 dist = self.distance(waypoints, i, stop_idx)
                 v = math.sqrt(2 * MAX_DECEL * (dist/20)**3)
                 if v<1.0:
