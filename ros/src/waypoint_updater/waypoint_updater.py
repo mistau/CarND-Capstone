@@ -24,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 50  # Number of waypoints we will publish. You can change this number
 MAX_DECEL = 10      # Max. acceptable deceleration is 10m/s/s
 
 
@@ -38,6 +38,7 @@ class WaypointUpdater(object):
 
         # init member variables
         self.have_waypoints = False
+        self.base_lane_wp_len = 0
         self.pose = None
         self.base_lane = None
         self.waypoints_2d = None
@@ -45,6 +46,8 @@ class WaypointUpdater(object):
         self.stopline_wp_idx = -1
         self.cache_closest_wp_idx = -1
         self.cache_decel_waypoints = None
+        self.last_closest_idx = -1
+        self.last_base_waypoints = None
 
         # inputs of the ROS module
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -105,8 +108,23 @@ class WaypointUpdater(object):
 
         closest_idx = self.get_closest_waypoint_idx()
         farthest_idx = closest_idx + LOOKAHEAD_WPS
-        base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
-
+        
+        if closest_idx == self.last_closest_idx:
+            base_waypoints = self.last_base_waypoints
+        elif self.last_base_waypoints == None:
+            base_waypoints = self.base_lane.waypoints[closest_idx:farthest_idx]
+        else:
+            base_waypoints = self.last_base_waypoints
+            for i in range(self.last_closest_idx, closest_idx):
+                if len(base_waypoints) > 1:
+                    base_waypoints.pop(0)
+                if i+LOOKAHEAD_WPS < self.base_lane_wp_len:
+                    base_waypoints.append( self.base_lane.waypoints[i + LOOKAHEAD_WPS] )
+        
+        # maintain cache
+        self.last_closest_idx = closest_idx
+        self.last_base_waypoints = base_waypoints
+        
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
             # easy case - continue driving
             lane.waypoints = base_waypoints
@@ -166,12 +184,13 @@ class WaypointUpdater(object):
         Callback: receives waypoints of track
         Attention: this is only published once, keep the data safe!
         """
-        rospy.loginfo("Received the waypoints")
         self.base_lane = waypoints
         if not self.waypoints_2d:
             self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
             self.waypoint_tree = KDTree(self.waypoints_2d)
+        self.base_lane_wp_len = len(self.base_lane.waypoints)
         self.have_waypoints = True
+        rospy.loginfo("Received {} waypoints".format(self.base_lane_wp_len))
 
 
     def traffic_cb(self, msg):
@@ -200,7 +219,6 @@ class WaypointUpdater(object):
     def distance(self, waypoints, wp1, wp2):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
-        # was wp2+1
         for i in range(wp1, wp2+1):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
