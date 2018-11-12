@@ -31,7 +31,7 @@ class TLClassifier(object):
                 'num_detections:0')
 
         self.sess = tf.Session(graph=self.graph)
-        rospy.loginfo('TLClassifier: Frozen graph loaded')
+        rospy.logwarn('TLClassifier: Frozen graph loaded')
 
 
     def get_classification(self, image):
