@@ -28,7 +28,8 @@ else()
     message (FATAL_ERROR "Cannot find Protobuf")
 endif()
 
-ADD_SUBDIRECTORY(light_classification)
+message(STATUS "Not generating Protobuf file!")
+#ADD_SUBDIRECTORY(light_classification)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
