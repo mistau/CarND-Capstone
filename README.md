@@ -2,10 +2,10 @@
 
 ### The Team "FirstTimeRight"
 
-- Michael Staudenmaier michael@staudis.net
-- Joe Herd jo.se.ph@me.com
-- Niels Drejer niels.drejer@drejerland.de
-- Shubham Sharma shubham4516@gmail.com
+- Michael Staudenmaier
+- Joe Herd
+- Niels Drejer
+- Shubham Sharma
 
 ---
 
